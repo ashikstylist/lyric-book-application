@@ -16,7 +16,7 @@ import DataLoader from '../components/DataLoader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, LogOut, RefreshCw } from 'lucide-react';
+import { ArrowLeft, LogOut, RefreshCw, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -86,6 +86,7 @@ const ManageSongs = () => {
   // State for tracking refresh status
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [isSaving, setIsSaving] = useState(false);
 
   // Function to fetch data
   const fetchData = async (showToast = false) => {
@@ -93,11 +94,15 @@ const ManageSongs = () => {
       setIsRefreshing(true);
 
       const loadedSongs = await loadSongs();
-      setSongs(loadedSongs);
-      setFilteredSongs(loadedSongs);
+      // Sort songs alphabetically by title
+      const sortedSongs = [...loadedSongs].sort((a, b) => a.title.localeCompare(b.title));
+      setSongs(sortedSongs);
+      setFilteredSongs(sortedSongs);
 
       const loadedCategories = await loadCategories();
-      setAvailableCategories(loadedCategories);
+      // Sort categories alphabetically
+      const sortedCategories = [...loadedCategories].sort((a, b) => a.localeCompare(b));
+      setAvailableCategories(sortedCategories);
 
       setLastRefreshed(new Date());
 
@@ -150,6 +155,9 @@ const ManageSongs = () => {
         song.categories.includes(filterCategory)
       );
     }
+
+    // Sort songs alphabetically by title
+    filtered.sort((a, b) => a.title.localeCompare(b.title));
 
     setFilteredSongs(filtered);
   }, [songs, searchTerm, filterCategory]);
@@ -247,6 +255,9 @@ const ManageSongs = () => {
       return;
     }
 
+    // Set loading state
+    setIsSaving(true);
+
     // Encode lyrics to base64 with UTF-8 support
     const encodedLyrics = utf8ToBase64(data.lyrics);
 
@@ -288,7 +299,9 @@ const ManageSongs = () => {
 
       // Update available categories list
       const updatedCategories = await loadCategories();
-      setAvailableCategories(updatedCategories);
+      // Sort categories alphabetically
+      const sortedCategories = [...updatedCategories].sort((a, b) => a.localeCompare(b));
+      setAvailableCategories(sortedCategories);
 
       // Update available categories if needed
       const allCategories = new Set([...availableCategories]);
@@ -323,6 +336,9 @@ const ManageSongs = () => {
         description: "There was a problem saving your changes.",
         variant: "destructive"
       });
+    } finally {
+      // Reset loading state regardless of outcome
+      setIsSaving(false);
     }
   };
 
@@ -351,7 +367,9 @@ const ManageSongs = () => {
 
       // Update available categories list
       const updatedCategories = await loadCategories();
-      setAvailableCategories(updatedCategories);
+      // Sort categories alphabetically
+      const sortedCategories = [...updatedCategories].sort((a, b) => a.localeCompare(b));
+      setAvailableCategories(sortedCategories);
 
       // If the current filter category was removed, reset it
       if (filterCategory && !updatedCategories.includes(filterCategory)) {
@@ -404,11 +422,15 @@ const ManageSongs = () => {
       const fetchData = async () => {
         try {
           const loadedSongs = await loadSongs();
-          setSongs(loadedSongs);
-          setFilteredSongs(loadedSongs);
+          // Sort songs alphabetically by title
+          const sortedSongs = [...loadedSongs].sort((a, b) => a.title.localeCompare(b.title));
+          setSongs(sortedSongs);
+          setFilteredSongs(sortedSongs);
 
           const loadedCategories = await loadCategories();
-          setAvailableCategories(loadedCategories);
+          // Sort categories alphabetically
+          const sortedCategories = [...loadedCategories].sort((a, b) => a.localeCompare(b));
+          setAvailableCategories(sortedCategories);
           
           // Don't lose the temp song if it exists
           if (tempSong) {
@@ -770,6 +792,7 @@ const ManageSongs = () => {
                           type="button"
                           onClick={handleDeleteSong}
                           variant="destructive"
+                          disabled={isSaving}
                         >
                           Delete Song
                         </Button>
@@ -780,6 +803,7 @@ const ManageSongs = () => {
                           type="button"
                           variant="outline"
                           onClick={discardTempSong}
+                          disabled={isSaving}
                         >
                           Cancel
                         </Button>
@@ -787,6 +811,7 @@ const ManageSongs = () => {
                       <Button
                         type="submit"
                         disabled={
+                          isSaving ||
                           !form.formState.isValid ||
                           !(form.watch("title")?.trim()) ||
                           !(form.watch("lyrics")?.trim()) ||
@@ -794,7 +819,16 @@ const ManageSongs = () => {
                         }
                         className={tempSong !== null && selectedSong.id === tempSong.id ? "bg-green-600 hover:bg-green-700" : ""}
                       >
-                        {tempSong !== null && selectedSong.id === tempSong.id ? 'Add to Collection' : 'Save Changes'}
+                        {isSaving ? (
+                          <>
+                            <Loader2 size={16} className="mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : tempSong !== null && selectedSong.id === tempSong.id ? (
+                          'Add to Collection'
+                        ) : (
+                          'Save Changes'
+                        )}
                       </Button>
                     </div>
                   </form>
